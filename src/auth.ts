@@ -17,6 +17,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "database" },
   providers: [
     Google({
+      // Safe with a single OAuth provider: links the Google account to an
+      // existing user with the same (Google-verified) email instead of
+      // failing with OAuthAccountNotLinked.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: CALENDAR_SCOPE,
