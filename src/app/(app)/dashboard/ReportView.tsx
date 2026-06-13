@@ -3,12 +3,23 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { RangeReport } from "@/lib/reports";
 
-function formatHours(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+/** Human-readable duration with an adaptive scale (m → h → d → weeks). */
+function formatDuration(minutes: number): string {
+  if (minutes <= 0) return "0m";
+  const m = Math.round(minutes);
+  if (m < 60) return `${m}m`;
+
+  const totalH = Math.floor(m / 60);
+  const remM = m % 60;
+  if (totalH < 24) return remM ? `${totalH}h ${remM}m` : `${totalH}h`;
+
+  const totalD = Math.floor(totalH / 24);
+  const remH = totalH % 24;
+  if (totalD < 7) return remH ? `${totalD}d ${remH}h` : `${totalD}d`;
+
+  const weeks = Math.floor(totalD / 7);
+  const remD = totalD % 7;
+  return remD ? `${weeks}sem ${remD}d` : `${weeks}sem`;
 }
 
 export function ReportView({ report }: { report: RangeReport }) {
@@ -24,10 +35,12 @@ export function ReportView({ report }: { report: RangeReport }) {
     ? `${fmt.format(startUtc)} – ${fmt.format(endUtc)}`
     : `Hasta ${fmt.format(endUtc)}`;
 
+  const hasUncategorized = slices.some((s) => s.uncategorized);
+
   if (slices.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center text-zinc-500 dark:border-zinc-700">
-        <p>No hay eventos en este período ({range}).</p>
+        <p>No hay eventos con horario en este período ({range}).</p>
         <p className="mt-1 text-sm">
           Tocá <strong>Sincronizar</strong> para traer tu Google Calendar.
         </p>
@@ -40,7 +53,7 @@ export function ReportView({ report }: { report: RangeReport }) {
       <div className="mb-4 flex items-baseline justify-between">
         <span className="text-sm text-zinc-500">{range}</span>
         <span className="text-sm font-medium">
-          Total: {formatHours(totalMinutes)}
+          Total: {formatDuration(totalMinutes)}
         </span>
       </div>
 
@@ -57,10 +70,10 @@ export function ReportView({ report }: { report: RangeReport }) {
                 paddingAngle={2}
               >
                 {slices.map((s) => (
-                  <Cell key={s.categoryId ?? "none"} fill={s.color} />
+                  <Cell key={s.key} fill={s.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => formatHours(Number(value))} />
+              <Tooltip formatter={(value) => formatDuration(Number(value))} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -72,23 +85,36 @@ export function ReportView({ report }: { report: RangeReport }) {
                 ? Math.round((s.minutes / totalMinutes) * 100)
                 : 0;
             return (
-              <li
-                key={s.categoryId ?? "none"}
-                className="flex items-center gap-3 text-sm"
-              >
+              <li key={s.key} className="flex items-center gap-3 text-sm">
                 <span
                   className="h-3 w-3 shrink-0 rounded-full"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="flex-1">{s.name}</span>
-                <span className="tabular-nums text-zinc-500">
-                  {formatHours(s.minutes)} · {pct}%
+                <span className="flex-1 truncate">
+                  {s.name}
+                  {s.uncategorized && (
+                    <span className="ml-1 text-xs text-zinc-400">
+                      (calendario)
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 tabular-nums text-zinc-500">
+                  {formatDuration(s.minutes)} · {pct}%
                 </span>
               </li>
             );
           })}
         </ul>
       </div>
+
+      {hasUncategorized && (
+        <p className="mt-6 text-xs text-zinc-400">
+          Los ítems marcados <em>(calendario)</em> aún no tienen categoría — se
+          agrupan por su calendario de origen. Creá{" "}
+          <strong>reglas</strong> para agruparlos como quieras. Los eventos de
+          día completo (feriados, cumpleaños) se excluyen.
+        </p>
+      )}
     </div>
   );
 }

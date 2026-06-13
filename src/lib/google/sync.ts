@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { calendars, events } from "@/db/schema";
+import { calendars, events, users } from "@/db/schema";
 import { getAccessToken } from "./client";
 import { categorizeUser } from "@/lib/categorize";
 
@@ -60,7 +60,9 @@ async function upsertCalendars(userId: string, token: string) {
     "/users/me/calendarList",
     token,
   );
+  let primaryTz: string | undefined;
   for (const item of data.items ?? []) {
+    if (item.primary && item.timeZone) primaryTz = item.timeZone;
     await db
       .insert(calendars)
       .values({
@@ -74,6 +76,14 @@ async function upsertCalendars(userId: string, token: string) {
         target: [calendars.userId, calendars.googleCalendarId],
         set: { summary: item.summary, timezone: item.timeZone },
       });
+  }
+
+  // Adopt the primary calendar's timezone for reporting if still default.
+  if (primaryTz) {
+    await db
+      .update(users)
+      .set({ timezone: primaryTz })
+      .where(and(eq(users.id, userId), eq(users.timezone, "UTC")));
   }
 }
 
