@@ -94,16 +94,22 @@ export async function getRangeReport(
   timezone: string,
   period: Period,
   ref: Date = new Date(),
+  options: { ignoreAllDay?: boolean } = {},
 ): Promise<RangeReport> {
+  const { ignoreAllDay = true } = options;
   const { startUtc, endUtc } = periodBounds(period, timezone, ref);
 
   const conditions = [
     eq(events.userId, userId),
     gt(events.durationMin, 0),
-    // Exclude all-day events: Google sets `start.date` (not `start.dateTime`).
-    sql`(${events.raw} -> 'start' ->> 'date') is null`,
+    // Only include events from calendars the user has enabled.
+    eq(calendars.selected, true),
     lt(events.startUtc, endUtc),
   ];
+  if (ignoreAllDay) {
+    // All-day events: Google sets `start.date` (not `start.dateTime`).
+    conditions.push(sql`(${events.raw} -> 'start' ->> 'date') is null`);
+  }
   if (startUtc) conditions.push(gte(events.startUtc, startUtc));
 
   const rows = await db

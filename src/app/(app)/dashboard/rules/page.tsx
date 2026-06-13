@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { verifySession } from "@/app/lib/dal";
 import { db } from "@/db";
@@ -28,17 +27,11 @@ export default async function RulesPage() {
   const catName = new Map(cats.map((c) => [c.id, c]));
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
+    <main className="mx-auto w-full max-w-3xl px-6 py-8">
+      <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">
           Categorías y reglas
         </h1>
-        <Link
-          href="/dashboard"
-          className="text-sm text-zinc-500 hover:underline"
-        >
-          ← Volver
-        </Link>
       </header>
 
       {/* Categories */}

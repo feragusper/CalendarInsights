@@ -9,8 +9,6 @@ import {
   PERIODS,
   PERIOD_LABELS,
 } from "@/lib/reports";
-import { signOut } from "@/auth";
-import { SyncButton } from "./SyncButton";
 import { ReportView } from "./ReportView";
 
 export default async function DashboardPage({
@@ -18,51 +16,28 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const { userId, user } = await verifySession();
+  const { userId } = await verifySession();
   const period = parsePeriod((await searchParams).period);
 
   const [row] = await db
-    .select({ timezone: users.timezone })
+    .select({ timezone: users.timezone, ignoreAllDay: users.ignoreAllDay })
     .from(users)
     .where(eq(users.id, userId));
   const timezone = row?.timezone ?? "UTC";
+  const ignoreAllDay = row?.ignoreAllDay ?? true;
 
-  const report = await getRangeReport(userId, timezone, period);
+  const report = await getRangeReport(userId, timezone, period, new Date(), {
+    ignoreAllDay,
+  });
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-12">
-      <header className="mb-6 flex items-center justify-between">
+    <main className="mx-auto w-full max-w-4xl px-6 py-8">
+      <div className="mb-6 flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Tu tiempo
-          </h1>
-          <p className="text-sm text-zinc-500">
-            {user.email} · {timezone}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Tu tiempo</h1>
+          <p className="text-sm text-zinc-500">Zona horaria: {timezone}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard/rules"
-            className="rounded-full border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Reglas
-          </Link>
-          <SyncButton />
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-full border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Salir
-            </button>
-          </form>
-        </div>
-      </header>
+      </div>
 
       <nav className="mb-8 flex gap-1 rounded-full border border-zinc-200 p-1 text-sm dark:border-zinc-800">
         {PERIODS.map((p) => {

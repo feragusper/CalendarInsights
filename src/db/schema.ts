@@ -26,6 +26,8 @@ export const users = pgTable("user", {
   image: text("image"),
   // App preference: IANA timezone used to bucket events into days/weeks.
   timezone: text("timezone").notNull().default("UTC"),
+  // Exclude all-day events (holidays, birthdays) from time-spent reports.
+  ignoreAllDay: boolean("ignore_all_day").notNull().default(true),
 });
 
 export const accounts = pgTable(

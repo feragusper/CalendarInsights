@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { categories, rules } from "@/db/schema";
+import { calendars, categories, rules, users } from "@/db/schema";
 import { categorizeUser } from "@/lib/categorize";
 import { verifySession } from "@/app/lib/dal";
 
@@ -26,6 +26,28 @@ const ruleSchema = z.object({
 function revalidate() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/rules");
+  revalidatePath("/dashboard/settings");
+}
+
+export async function setIgnoreAllDay(formData: FormData) {
+  const { userId } = await verifySession();
+  const ignore = formData.get("ignoreAllDay") === "on";
+  await db
+    .update(users)
+    .set({ ignoreAllDay: ignore })
+    .where(eq(users.id, userId));
+  revalidate();
+}
+
+export async function setCalendarSelected(formData: FormData) {
+  const { userId } = await verifySession();
+  const id = String(formData.get("id"));
+  const selected = formData.get("selected") === "on";
+  await db
+    .update(calendars)
+    .set({ selected })
+    .where(and(eq(calendars.id, id), eq(calendars.userId, userId)));
+  revalidate();
 }
 
 export async function createCategory(formData: FormData) {

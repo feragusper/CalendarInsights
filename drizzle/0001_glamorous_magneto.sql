@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "ignore_all_day" boolean DEFAULT true NOT NULL;

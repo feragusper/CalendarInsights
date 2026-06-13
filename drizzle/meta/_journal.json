@@ -8,6 +8,13 @@
       "when": 1781380746017,
       "tag": "0000_worthless_firedrake",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781386028933,
+      "tag": "0001_glamorous_magneto",
+      "breakpoints": true
     }
   ]
 }
