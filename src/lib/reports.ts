@@ -22,6 +22,18 @@ export const PERIOD_LABELS: Record<Period, string> = {
   all: "Histórico",
 };
 
+export const GROUPINGS = ["category", "title"] as const;
+export type Grouping = (typeof GROUPINGS)[number];
+
+export const GROUPING_LABELS: Record<Grouping, string> = {
+  category: "Categoría",
+  title: "Actividad",
+};
+
+// Cap slices so the chart/legend stay readable; the tail becomes "Otros".
+const MAX_SLICES = 12;
+const OTHERS_COLOR = "#cbd5e1";
+
 export type CategorySlice = {
   key: string;
   name: string;
@@ -54,6 +66,32 @@ function colorFor(seed: string): string {
 
 export function parsePeriod(value: string | undefined): Period {
   return PERIODS.includes(value as Period) ? (value as Period) : "week";
+}
+
+export function parseGrouping(value: string | undefined): Grouping {
+  return GROUPINGS.includes(value as Grouping)
+    ? (value as Grouping)
+    : "category";
+}
+
+/** Sort by time desc and collapse the long tail into a single "Otros" slice. */
+function capSlices(slices: CategorySlice[]): CategorySlice[] {
+  const sorted = [...slices].sort((a, b) => b.minutes - a.minutes);
+  if (sorted.length <= MAX_SLICES) return sorted;
+
+  const head = sorted.slice(0, MAX_SLICES);
+  const tail = sorted.slice(MAX_SLICES);
+  const otherMinutes = tail.reduce((s, x) => s + x.minutes, 0);
+  if (otherMinutes > 0) {
+    head.push({
+      key: "__others__",
+      name: `Otros (${tail.length})`,
+      color: OTHERS_COLOR,
+      minutes: otherMinutes,
+      uncategorized: false,
+    });
+  }
+  return head;
 }
 
 export function periodBounds(
@@ -94,9 +132,9 @@ export async function getRangeReport(
   timezone: string,
   period: Period,
   ref: Date = new Date(),
-  options: { ignoreAllDay?: boolean } = {},
+  options: { ignoreAllDay?: boolean; grouping?: Grouping } = {},
 ): Promise<RangeReport> {
-  const { ignoreAllDay = true } = options;
+  const { ignoreAllDay = true, grouping = "category" } = options;
   const { startUtc, endUtc } = periodBounds(period, timezone, ref);
 
   const conditions = [
@@ -119,6 +157,7 @@ export async function getRangeReport(
       catColor: categories.color,
       calendarId: events.calendarId,
       calName: calendars.summary,
+      title: events.title,
       durationMin: events.durationMin,
     })
     .from(events)
@@ -134,26 +173,34 @@ export async function getRangeReport(
     if (minutes <= 0) continue;
     totalMinutes += minutes;
 
-    const categorized = row.categoryId != null;
-    const key = categorized ? `cat:${row.categoryId}` : `cal:${row.calendarId}`;
+    let key: string;
+    let name: string;
+    let color: string;
+    let uncategorized = false;
+
+    if (grouping === "title") {
+      const title = row.title?.trim() || "Sin título";
+      key = `title:${title.toLowerCase()}`;
+      name = title;
+      color = colorFor(key);
+    } else {
+      const categorized = row.categoryId != null;
+      key = categorized ? `cat:${row.categoryId}` : `cal:${row.calendarId}`;
+      name = categorized
+        ? (row.catName ?? "Categoría")
+        : (row.calName ?? "Sin calendario");
+      color = categorized ? (row.catColor ?? "#888888") : colorFor(row.calendarId);
+      uncategorized = !categorized;
+    }
+
     const existing = byKey.get(key);
     if (existing) {
       existing.minutes += minutes;
     } else {
-      byKey.set(key, {
-        key,
-        name: categorized
-          ? (row.catName ?? "Categoría")
-          : (row.calName ?? "Sin calendario"),
-        color: categorized
-          ? (row.catColor ?? "#888888")
-          : colorFor(row.calendarId),
-        minutes,
-        uncategorized: !categorized,
-      });
+      byKey.set(key, { key, name, color, minutes, uncategorized });
     }
   }
 
-  const slices = [...byKey.values()].sort((a, b) => b.minutes - a.minutes);
+  const slices = capSlices([...byKey.values()]);
   return { period, startUtc, endUtc, timezone, totalMinutes, slices };
 }
