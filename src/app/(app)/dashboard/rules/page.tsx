@@ -7,6 +7,7 @@ import {
   createRule,
   deleteCategory,
   deleteRule,
+  seedDefaultRules,
 } from "@/app/lib/actions";
 
 const MATCH_LABELS: Record<string, string> = {
@@ -28,10 +29,18 @@ export default async function RulesPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8">
-      <header className="mb-8">
+      <header className="mb-8 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">
           Categorías y reglas
         </h1>
+        <form action={seedDefaultRules}>
+          <button
+            type="submit"
+            className="shrink-0 rounded-full border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            Generar sugeridas
+          </button>
+        </form>
       </header>
 
       {/* Categories */}

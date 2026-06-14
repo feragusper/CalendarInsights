@@ -45,6 +45,75 @@ export async function setIgnoreAllDay(formData: FormData) {
   revalidate();
 }
 
+// Suggested starter set based on common Google Calendar patterns.
+const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [
+  { name: "Trabajo", color: "#3b82f6" },
+  { name: "Salud", color: "#22c55e" },
+  { name: "Personal", color: "#a855f7" },
+  { name: "Pareja", color: "#ec4899" },
+  { name: "Social", color: "#f59e0b" },
+];
+
+const DEFAULT_RULES: Array<{ pattern: string; category: string }> = [
+  { pattern: "Fer:", category: "Trabajo" },
+  { pattern: "Pilates", category: "Salud" },
+  { pattern: "Bicicleta", category: "Salud" },
+  { pattern: "Gym", category: "Salud" },
+  { pattern: "Terapia", category: "Salud" },
+  { pattern: "Piano", category: "Personal" },
+  { pattern: "Canto", category: "Personal" },
+  { pattern: "Ensayo", category: "Personal" },
+  { pattern: "Momento pareja", category: "Pareja" },
+  { pattern: "Brunch", category: "Social" },
+  { pattern: "Cumple", category: "Social" },
+  { pattern: "Cena", category: "Social" },
+];
+
+/** Creates a suggested set of categories + rules (idempotent), then recategorizes. */
+export async function seedDefaultRules() {
+  const { userId } = await verifySession();
+
+  const existingCats = await db
+    .select({ id: categories.id, name: categories.name })
+    .from(categories)
+    .where(eq(categories.userId, userId));
+  const catByName = new Map(existingCats.map((c) => [c.name, c.id]));
+
+  for (const c of DEFAULT_CATEGORIES) {
+    if (catByName.has(c.name)) continue;
+    const [created] = await db
+      .insert(categories)
+      .values({ userId, name: c.name, color: c.color })
+      .returning({ id: categories.id });
+    catByName.set(c.name, created.id);
+  }
+
+  const existingRules = await db
+    .select({ matchType: rules.matchType, pattern: rules.pattern })
+    .from(rules)
+    .where(eq(rules.userId, userId));
+  const ruleKeys = new Set(
+    existingRules.map((r) => `${r.matchType}:${r.pattern.toLowerCase()}`),
+  );
+
+  for (const r of DEFAULT_RULES) {
+    const key = `title_contains:${r.pattern.toLowerCase()}`;
+    if (ruleKeys.has(key)) continue;
+    const categoryId = catByName.get(r.category);
+    if (!categoryId) continue;
+    await db.insert(rules).values({
+      userId,
+      matchType: "title_contains",
+      pattern: r.pattern,
+      categoryId,
+      priority: 10,
+    });
+  }
+
+  await categorizeUser(userId);
+  revalidate();
+}
+
 export async function ignoreTitle(formData: FormData) {
   const { userId } = await verifySession();
   const display = String(formData.get("title") ?? "").trim();
