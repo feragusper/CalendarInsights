@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 import { db } from "@/db";
 import { calendars, categories, events, ignoredTitles } from "@/db/schema";
+import { computeManualMinutes } from "@/lib/manual";
 
 export const PERIODS = ["week", "month", "year", "all"] as const;
 export type Period = (typeof PERIODS)[number];
@@ -223,6 +224,28 @@ export async function getRangeReport(
       existing.minutes += minutes;
     } else {
       byKey.set(key, { key, name, color, minutes, uncategorized });
+    }
+  }
+
+  // Add manual blocks (sleep, unscheduled work, …) as time not on the calendar.
+  const manual = await computeManualMinutes(userId, timezone, startUtc, endUtc);
+  for (const m of manual) {
+    if (m.minutes <= 0) continue;
+    totalMinutes += m.minutes;
+    // Merge into the category slice when grouping by category; otherwise show
+    // the block as its own activity-like slice.
+    const key = grouping === "category" ? `cat:${m.categoryId}` : `manual:${m.categoryId}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.minutes += m.minutes;
+    } else {
+      byKey.set(key, {
+        key,
+        name: m.name,
+        color: m.color,
+        minutes: m.minutes,
+        uncategorized: false,
+      });
     }
   }
 

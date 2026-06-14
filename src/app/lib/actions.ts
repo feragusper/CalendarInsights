@@ -8,6 +8,7 @@ import {
   calendars,
   categories,
   ignoredTitles,
+  manualBlockTemplates,
   rules,
   users,
 } from "@/db/schema";
@@ -156,6 +157,70 @@ export async function unignoreTitle(formData: FormData) {
   await db
     .delete(ignoredTitles)
     .where(and(eq(ignoredTitles.id, id), eq(ignoredTitles.userId, userId)));
+  revalidate();
+}
+
+const blockSchema = z.object({
+  kind: z.enum(["sleep", "work", "custom"]),
+  categoryId: z.string().min(1),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  fillGaps: z.boolean(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+});
+
+export async function createManualBlock(formData: FormData) {
+  const { userId } = await verifySession();
+  const days = formData
+    .getAll("dow")
+    .map((d) => Number(d))
+    .filter((n) => Number.isInteger(n));
+
+  const parsed = blockSchema.safeParse({
+    kind: formData.get("kind"),
+    categoryId: formData.get("categoryId"),
+    startTime: formData.get("startTime"),
+    endTime: formData.get("endTime"),
+    fillGaps: formData.get("fillGaps") === "on",
+    daysOfWeek: days,
+  });
+  if (!parsed.success) return;
+
+  // Ensure the category belongs to the user.
+  const [cat] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.id, parsed.data.categoryId),
+        eq(categories.userId, userId),
+      ),
+    );
+  if (!cat) return;
+
+  await db.insert(manualBlockTemplates).values({
+    userId,
+    categoryId: parsed.data.categoryId,
+    kind: parsed.data.kind,
+    daysOfWeek: parsed.data.daysOfWeek,
+    startTime: parsed.data.startTime,
+    endTime: parsed.data.endTime,
+    fillGaps: parsed.data.fillGaps,
+  });
+  revalidate();
+}
+
+export async function deleteManualBlock(formData: FormData) {
+  const { userId } = await verifySession();
+  const id = String(formData.get("id"));
+  await db
+    .delete(manualBlockTemplates)
+    .where(
+      and(
+        eq(manualBlockTemplates.id, id),
+        eq(manualBlockTemplates.userId, userId),
+      ),
+    );
   revalidate();
 }
 
