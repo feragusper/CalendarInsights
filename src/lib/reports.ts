@@ -8,6 +8,9 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
+  subDays,
+  subMonths,
+  subYears,
 } from "date-fns";
 import { db } from "@/db";
 import { calendars, categories, events, ignoredTitles } from "@/db/schema";
@@ -218,4 +221,98 @@ export async function getRangeReport(
 
   const slices = capSlices([...byKey.values()]);
   return { period, grouping, startUtc, endUtc, timezone, totalMinutes, slices };
+}
+
+export type Mover = {
+  key: string;
+  name: string;
+  color: string;
+  currentMin: number;
+  prevMin: number;
+  deltaMin: number;
+};
+
+export type Insights = {
+  hasComparison: boolean;
+  currentTotal: number;
+  prevTotal: number;
+  movers: Mover[];
+};
+
+/** Reference date for the period immediately before `ref`. */
+function previousRef(period: Period, ref: Date): Date | null {
+  switch (period) {
+    case "week":
+      return subDays(ref, 7);
+    case "month":
+      return subMonths(ref, 1);
+    case "year":
+      return subYears(ref, 1);
+    case "all":
+      return null;
+  }
+}
+
+/**
+ * Compares the current period against the previous equivalent one and returns
+ * the activities/categories that moved the most. No comparison for "all".
+ */
+export async function getInsights(
+  userId: string,
+  timezone: string,
+  period: Period,
+  ref: Date = new Date(),
+  options: { ignoreAllDay?: boolean; grouping?: Grouping } = {},
+): Promise<Insights> {
+  const prev = previousRef(period, ref);
+  if (!prev) {
+    return { hasComparison: false, currentTotal: 0, prevTotal: 0, movers: [] };
+  }
+
+  const [cur, before] = await Promise.all([
+    getRangeReport(userId, timezone, period, ref, options),
+    getRangeReport(userId, timezone, period, prev, options),
+  ]);
+
+  const merged = new Map<string, Mover>();
+  for (const s of cur.slices) {
+    if (s.key === "__others__") continue;
+    merged.set(s.key, {
+      key: s.key,
+      name: s.name,
+      color: s.color,
+      currentMin: s.minutes,
+      prevMin: 0,
+      deltaMin: s.minutes,
+    });
+  }
+  for (const s of before.slices) {
+    if (s.key === "__others__") continue;
+    const m = merged.get(s.key);
+    if (m) {
+      m.prevMin = s.minutes;
+      m.deltaMin = m.currentMin - s.minutes;
+    } else {
+      merged.set(s.key, {
+        key: s.key,
+        name: s.name,
+        color: s.color,
+        currentMin: 0,
+        prevMin: s.minutes,
+        deltaMin: -s.minutes,
+      });
+    }
+  }
+
+  const movers = [...merged.values()]
+    .filter((m) => m.deltaMin !== 0)
+    .sort((a, b) => Math.abs(b.deltaMin) - Math.abs(a.deltaMin))
+    .slice(0, 6);
+
+  return {
+    hasComparison: true,
+    currentTotal: cur.totalMinutes,
+    prevTotal: before.totalMinutes,
+    movers,
+  };
 }

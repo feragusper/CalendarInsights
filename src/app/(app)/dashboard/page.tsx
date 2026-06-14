@@ -4,6 +4,7 @@ import { verifySession } from "@/app/lib/dal";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import {
+  getInsights,
   getRangeReport,
   parseGrouping,
   parsePeriod,
@@ -13,6 +14,7 @@ import {
   PERIOD_LABELS,
 } from "@/lib/reports";
 import { ReportView } from "./ReportView";
+import { InsightsView } from "./InsightsView";
 
 export default async function DashboardPage({
   searchParams,
@@ -31,10 +33,11 @@ export default async function DashboardPage({
   const timezone = row?.timezone ?? "UTC";
   const ignoreAllDay = row?.ignoreAllDay ?? true;
 
-  const report = await getRangeReport(userId, timezone, period, new Date(), {
-    ignoreAllDay,
-    grouping,
-  });
+  const now = new Date();
+  const [report, insights] = await Promise.all([
+    getRangeReport(userId, timezone, period, now, { ignoreAllDay, grouping }),
+    getInsights(userId, timezone, period, now, { ignoreAllDay, grouping }),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-8">
@@ -86,6 +89,7 @@ export default async function DashboardPage({
         </nav>
       </div>
 
+      <InsightsView insights={insights} />
       <ReportView report={report} />
     </main>
   );

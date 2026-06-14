@@ -3,25 +3,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { RangeReport } from "@/lib/reports";
 import { ignoreTitle } from "@/app/lib/actions";
-
-/** Human-readable duration with an adaptive scale (m → h → d → weeks). */
-function formatDuration(minutes: number): string {
-  if (minutes <= 0) return "0m";
-  const m = Math.round(minutes);
-  if (m < 60) return `${m}m`;
-
-  const totalH = Math.floor(m / 60);
-  const remM = m % 60;
-  if (totalH < 24) return remM ? `${totalH}h ${remM}m` : `${totalH}h`;
-
-  const totalD = Math.floor(totalH / 24);
-  const remH = totalH % 24;
-  if (totalD < 7) return remH ? `${totalD}d ${remH}h` : `${totalD}d`;
-
-  const weeks = Math.floor(totalD / 7);
-  const remD = totalD % 7;
-  return remD ? `${weeks}sem ${remD}d` : `${weeks}sem`;
-}
+import { formatDuration } from "@/lib/format";
 
 export function ReportView({ report }: { report: RangeReport }) {
   const { slices, totalMinutes, startUtc, endUtc, timezone } = report;
