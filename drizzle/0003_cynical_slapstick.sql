@@ -1,0 +1,1 @@
+ALTER TABLE "ignored_title" ADD COLUMN "match_type" text DEFAULT 'exact' NOT NULL;

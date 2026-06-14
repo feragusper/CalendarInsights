@@ -3,6 +3,7 @@ import { verifySession } from "@/app/lib/dal";
 import { db } from "@/db";
 import { calendars, events, ignoredTitles, users } from "@/db/schema";
 import {
+  ignorePattern,
   setCalendarSelected,
   setIgnoreAllDay,
   unignoreTitle,
@@ -18,7 +19,11 @@ export default async function SettingsPage() {
     .where(eq(users.id, userId));
 
   const ignored = await db
-    .select({ id: ignoredTitles.id, display: ignoredTitles.display })
+    .select({
+      id: ignoredTitles.id,
+      display: ignoredTitles.display,
+      matchType: ignoredTitles.matchType,
+    })
     .from(ignoredTitles)
     .where(eq(ignoredTitles.userId, userId))
     .orderBy(ignoredTitles.display);
@@ -69,6 +74,20 @@ export default async function SettingsPage() {
         <p className="mb-3 text-sm text-zinc-500">
           Eventos ocultados desde el dashboard. Reactivá para volver a contarlos.
         </p>
+        <form action={ignorePattern} className="mb-3 flex items-center gap-2">
+          <input
+            name="pattern"
+            placeholder="Ignorar títulos que contengan… (ej. cambiar remera)"
+            required
+            className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="submit"
+            className="rounded bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-black"
+          >
+            Ignorar patrón
+          </button>
+        </form>
         {ignored.length === 0 ? (
           <p className="text-sm text-zinc-400">Ninguna.</p>
         ) : (
@@ -76,9 +95,20 @@ export default async function SettingsPage() {
             {ignored.map((i) => (
               <li
                 key={i.id}
-                className="flex items-center justify-between p-4 text-sm"
+                className="flex items-center justify-between gap-2 p-4 text-sm"
               >
-                <span className="min-w-0 truncate">{i.display}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate">{i.display}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                      i.matchType === "contains"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800"
+                    }`}
+                  >
+                    {i.matchType === "contains" ? "contiene" : "exacto"}
+                  </span>
+                </span>
                 <form action={unignoreTitle}>
                   <input type="hidden" name="id" value={i.id} />
                   <button

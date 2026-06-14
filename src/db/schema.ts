@@ -177,6 +177,8 @@ export const ignoredTitles = pgTable(
     // Stored lowercased for matching; `display` keeps the original casing.
     title: text("title").notNull(),
     display: text("display").notNull(),
+    // "exact" matches the full title; "contains" matches any title including it.
+    matchType: text("match_type").notNull().default("exact"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("ignored_title_user_idx").on(t.userId, t.title)],

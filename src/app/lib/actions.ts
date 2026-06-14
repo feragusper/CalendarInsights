@@ -120,7 +120,30 @@ export async function ignoreTitle(formData: FormData) {
   if (!display) return;
   await db
     .insert(ignoredTitles)
-    .values({ userId, title: display.toLowerCase(), display })
+    .values({
+      userId,
+      title: display.toLowerCase(),
+      display,
+      matchType: "exact",
+    })
+    .onConflictDoNothing({
+      target: [ignoredTitles.userId, ignoredTitles.title],
+    });
+  revalidate();
+}
+
+export async function ignorePattern(formData: FormData) {
+  const { userId } = await verifySession();
+  const display = String(formData.get("pattern") ?? "").trim();
+  if (!display) return;
+  await db
+    .insert(ignoredTitles)
+    .values({
+      userId,
+      title: display.toLowerCase(),
+      display,
+      matchType: "contains",
+    })
     .onConflictDoNothing({
       target: [ignoredTitles.userId, ignoredTitles.title],
     });

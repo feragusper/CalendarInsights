@@ -154,17 +154,24 @@ export async function getRangeReport(
   }
   if (startUtc) conditions.push(gte(events.startUtc, startUtc));
 
-  // Exclude user-ignored event titles (case-insensitive).
+  // Exclude user-ignored event titles (case-insensitive): exact + contains.
   const ignored = await db
-    .select({ title: ignoredTitles.title })
+    .select({ title: ignoredTitles.title, matchType: ignoredTitles.matchType })
     .from(ignoredTitles)
     .where(eq(ignoredTitles.userId, userId));
-  if (ignored.length > 0) {
+  const exact = ignored.filter((i) => i.matchType !== "contains");
+  const contains = ignored.filter((i) => i.matchType === "contains");
+  if (exact.length > 0) {
     conditions.push(
       notInArray(
         sql`lower(coalesce(${events.title}, ''))`,
-        ignored.map((i) => i.title),
+        exact.map((i) => i.title),
       ),
+    );
+  }
+  for (const c of contains) {
+    conditions.push(
+      sql`lower(coalesce(${events.title}, '')) not like ${"%" + c.title + "%"}`,
     );
   }
 
