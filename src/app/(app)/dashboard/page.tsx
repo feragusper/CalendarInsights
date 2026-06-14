@@ -89,7 +89,7 @@ export default async function DashboardPage({
         </nav>
       </div>
 
-      <InsightsView insights={insights} />
+      <InsightsView insights={insights} grouping={grouping} />
       <ReportView report={report} />
     </main>
   );

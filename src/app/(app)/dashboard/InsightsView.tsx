@@ -1,5 +1,6 @@
-import type { Insights } from "@/lib/reports";
+import type { Grouping, Insights } from "@/lib/reports";
 import { formatDuration } from "@/lib/format";
+import { ignoreTitle } from "@/app/lib/actions";
 
 function pctChange(current: number, prev: number): string | null {
   if (prev === 0) return current > 0 ? "nuevo" : null;
@@ -7,10 +8,17 @@ function pctChange(current: number, prev: number): string | null {
   return `${pct > 0 ? "+" : ""}${pct}%`;
 }
 
-export function InsightsView({ insights }: { insights: Insights }) {
+export function InsightsView({
+  insights,
+  grouping,
+}: {
+  insights: Insights;
+  grouping: Grouping;
+}) {
   if (!insights.hasComparison || insights.movers.length === 0) return null;
 
   const totalPct = pctChange(insights.currentTotal, insights.prevTotal);
+  const canIgnore = grouping === "title";
 
   return (
     <section className="mb-8 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -29,7 +37,7 @@ export function InsightsView({ insights }: { insights: Insights }) {
           return (
             <li
               key={m.key}
-              className="flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-xs dark:border-zinc-700"
+              className="group flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-xs dark:border-zinc-700"
             >
               <span
                 className="h-2 w-2 rounded-full"
@@ -40,6 +48,18 @@ export function InsightsView({ insights }: { insights: Insights }) {
                 {up ? "▲" : "▼"} {formatDuration(m.deltaMin)}
                 {pct && pct !== "nuevo" ? ` · ${pct}` : ""}
               </span>
+              {canIgnore && (
+                <form action={ignoreTitle} className="ml-0.5 flex">
+                  <input type="hidden" name="title" value={m.name} />
+                  <button
+                    type="submit"
+                    title="Ignorar esta actividad"
+                    className="text-zinc-300 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </form>
+              )}
             </li>
           );
         })}
