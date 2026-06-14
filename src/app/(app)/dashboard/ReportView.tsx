@@ -2,6 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { RangeReport } from "@/lib/reports";
+import { ignoreTitle } from "@/app/lib/actions";
 
 /** Human-readable duration with an adaptive scale (m → h → d → weeks). */
 function formatDuration(minutes: number): string {
@@ -36,6 +37,7 @@ export function ReportView({ report }: { report: RangeReport }) {
     : `Hasta ${fmt.format(endUtc)}`;
 
   const hasUncategorized = slices.some((s) => s.uncategorized);
+  const canIgnore = report.grouping === "title";
 
   if (slices.length === 0) {
     return (
@@ -84,8 +86,9 @@ export function ReportView({ report }: { report: RangeReport }) {
               totalMinutes > 0
                 ? Math.round((s.minutes / totalMinutes) * 100)
                 : 0;
+            const ignorable = canIgnore && s.key !== "__others__";
             return (
-              <li key={s.key} className="flex items-center gap-3 text-sm">
+              <li key={s.key} className="group flex items-center gap-3 text-sm">
                 <span
                   className="h-3 w-3 shrink-0 rounded-full"
                   style={{ backgroundColor: s.color }}
@@ -98,6 +101,18 @@ export function ReportView({ report }: { report: RangeReport }) {
                     </span>
                   )}
                 </span>
+                {ignorable && (
+                  <form action={ignoreTitle} className="shrink-0">
+                    <input type="hidden" name="title" value={s.name} />
+                    <button
+                      type="submit"
+                      title="Ignorar esta actividad"
+                      className="text-zinc-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                    >
+                      ✕
+                    </button>
+                  </form>
+                )}
                 <span className="shrink-0 tabular-nums text-zinc-500">
                   {formatDuration(s.minutes)} · {pct}%
                 </span>

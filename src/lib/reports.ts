@@ -1,5 +1,5 @@
 import "server-only";
-import { and, gte, lt, eq, gt, sql } from "drizzle-orm";
+import { and, gte, lt, eq, gt, sql, notInArray } from "drizzle-orm";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import {
   startOfWeek,
@@ -10,7 +10,7 @@ import {
   endOfYear,
 } from "date-fns";
 import { db } from "@/db";
-import { calendars, categories, events } from "@/db/schema";
+import { calendars, categories, events, ignoredTitles } from "@/db/schema";
 
 export const PERIODS = ["week", "month", "year", "all"] as const;
 export type Period = (typeof PERIODS)[number];
@@ -45,6 +45,7 @@ export type CategorySlice = {
 
 export type RangeReport = {
   period: Period;
+  grouping: Grouping;
   startUtc: Date | null;
   endUtc: Date;
   timezone: string;
@@ -150,6 +151,20 @@ export async function getRangeReport(
   }
   if (startUtc) conditions.push(gte(events.startUtc, startUtc));
 
+  // Exclude user-ignored event titles (case-insensitive).
+  const ignored = await db
+    .select({ title: ignoredTitles.title })
+    .from(ignoredTitles)
+    .where(eq(ignoredTitles.userId, userId));
+  if (ignored.length > 0) {
+    conditions.push(
+      notInArray(
+        sql`lower(coalesce(${events.title}, ''))`,
+        ignored.map((i) => i.title),
+      ),
+    );
+  }
+
   const rows = await db
     .select({
       categoryId: events.categoryId,
@@ -202,5 +217,5 @@ export async function getRangeReport(
   }
 
   const slices = capSlices([...byKey.values()]);
-  return { period, startUtc, endUtc, timezone, totalMinutes, slices };
+  return { period, grouping, startUtc, endUtc, timezone, totalMinutes, slices };
 }

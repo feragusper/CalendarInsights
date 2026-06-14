@@ -4,7 +4,13 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { calendars, categories, rules, users } from "@/db/schema";
+import {
+  calendars,
+  categories,
+  ignoredTitles,
+  rules,
+  users,
+} from "@/db/schema";
 import { categorizeUser } from "@/lib/categorize";
 import { verifySession } from "@/app/lib/dal";
 
@@ -36,6 +42,28 @@ export async function setIgnoreAllDay(formData: FormData) {
     .update(users)
     .set({ ignoreAllDay: ignore })
     .where(eq(users.id, userId));
+  revalidate();
+}
+
+export async function ignoreTitle(formData: FormData) {
+  const { userId } = await verifySession();
+  const display = String(formData.get("title") ?? "").trim();
+  if (!display) return;
+  await db
+    .insert(ignoredTitles)
+    .values({ userId, title: display.toLowerCase(), display })
+    .onConflictDoNothing({
+      target: [ignoredTitles.userId, ignoredTitles.title],
+    });
+  revalidate();
+}
+
+export async function unignoreTitle(formData: FormData) {
+  const { userId } = await verifySession();
+  const id = String(formData.get("id"));
+  await db
+    .delete(ignoredTitles)
+    .where(and(eq(ignoredTitles.id, id), eq(ignoredTitles.userId, userId)));
   revalidate();
 }
 

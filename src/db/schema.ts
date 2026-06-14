@@ -164,6 +164,24 @@ export const rules = pgTable("rule", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
+/** Event titles the user chose to hide from all reports (case-insensitive). */
+export const ignoredTitles = pgTable(
+  "ignored_title",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Stored lowercased for matching; `display` keeps the original casing.
+    title: text("title").notNull(),
+    display: text("display").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ignored_title_user_idx").on(t.userId, t.title)],
+);
+
 /**
  * Manual time blocks (sleep, unscheduled work, etc.). Modeled in M1; the
  * generation/gap-fill logic lands in M2.

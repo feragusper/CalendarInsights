@@ -1,8 +1,12 @@
 import { eq, sql } from "drizzle-orm";
 import { verifySession } from "@/app/lib/dal";
 import { db } from "@/db";
-import { calendars, events, users } from "@/db/schema";
-import { setCalendarSelected, setIgnoreAllDay } from "@/app/lib/actions";
+import { calendars, events, ignoredTitles, users } from "@/db/schema";
+import {
+  setCalendarSelected,
+  setIgnoreAllDay,
+  unignoreTitle,
+} from "@/app/lib/actions";
 import { AutoToggle } from "./AutoToggle";
 
 export default async function SettingsPage() {
@@ -12,6 +16,12 @@ export default async function SettingsPage() {
     .select({ ignoreAllDay: users.ignoreAllDay, timezone: users.timezone })
     .from(users)
     .where(eq(users.id, userId));
+
+  const ignored = await db
+    .select({ id: ignoredTitles.id, display: ignoredTitles.display })
+    .from(ignoredTitles)
+    .where(eq(ignoredTitles.userId, userId))
+    .orderBy(ignoredTitles.display);
 
   const cals = await db
     .select({
@@ -51,6 +61,37 @@ export default async function SettingsPage() {
           </div>
           <AutoToggle name="ignoreAllDay" defaultChecked={user.ignoreAllDay} />
         </form>
+      </section>
+
+      {/* Ignored activities */}
+      <section className="mb-10">
+        <h2 className="mb-1 text-lg font-medium">Actividades ignoradas</h2>
+        <p className="mb-3 text-sm text-zinc-500">
+          Eventos ocultados desde el dashboard. Reactivá para volver a contarlos.
+        </p>
+        {ignored.length === 0 ? (
+          <p className="text-sm text-zinc-400">Ninguna.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            {ignored.map((i) => (
+              <li
+                key={i.id}
+                className="flex items-center justify-between p-4 text-sm"
+              >
+                <span className="min-w-0 truncate">{i.display}</span>
+                <form action={unignoreTitle}>
+                  <input type="hidden" name="id" value={i.id} />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    Reactivar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Calendars */}

@@ -15,6 +15,13 @@
       "when": 1781386028933,
       "tag": "0001_glamorous_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781435132251,
+      "tag": "0002_kind_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }
